@@ -172,7 +172,11 @@
 
   async function lockScreen(){ try{ if("wakeLock" in navigator) wakeLock=await navigator.wakeLock.request("screen"); }catch(e){} }
   function unlockScreen(){ try{ wakeLock&&wakeLock.release(); }catch(e){} wakeLock=null; }
-  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"&&armed) lockScreen(); });
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="visible"){ if(armed) lockScreen(); }
+    else if(capturing) finishCapture();   // app naar achtergrond/dicht -> lopende opname veiligstellen
+  });
+  window.addEventListener("pagehide",()=>{ if(capturing) finishCapture(); });
 
   function pickMime(){ const c=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm","video/mp4"];
     for(const m of c) if(window.MediaRecorder&&MediaRecorder.isTypeSupported(m)) return m; return ""; }
@@ -300,7 +304,13 @@
       acts.append(play,dl,del); el.append(img,meta,acts); clipsEl.append(el);
     }
   }
-  async function updateUsage(){ try{ if(navigator.storage&&navigator.storage.estimate){ const e=await navigator.storage.estimate(); usageEl.textContent=fmtSize(e.usage||0)+" gebruikt"; } }catch(e){} }
+  async function requestPersist(){ try{ if(navigator.storage&&navigator.storage.persist){
+    const had=navigator.storage.persisted?await navigator.storage.persisted():false;
+    if(!had) await navigator.storage.persist(); } }catch(e){} }
+  async function updateUsage(){ try{ if(navigator.storage&&navigator.storage.estimate){ const e=await navigator.storage.estimate();
+    let t=fmtSize(e.usage||0)+" gebruikt";
+    if(navigator.storage.persisted){ const p=await navigator.storage.persisted(); t+=p?" · beveiligd":" · niet beveiligd"; }
+    usageEl.textContent=t; } }catch(e){} }
 
   function setState(s){
     statusEl.classList.remove("state-watch","state-rec"); timerEl.classList.add("hidden");
@@ -335,6 +345,7 @@
   (async()=>{
     if(!window.isSecureContext) show("Tip: open deze app via https (of localhost). Anders blokkeert de browser de camera.");
     try{ db=await openDB(); }catch(e){}
+    await requestPersist();
     renderClips(); updateUsage(); loop();
     armBtn.disabled=false; armBtn.textContent="Camera starten";
   })();

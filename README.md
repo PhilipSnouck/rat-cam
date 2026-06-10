@@ -10,6 +10,7 @@ Geen tweede toestel, geen account, geen abonnement. Alles draait lokaal in de br
 - Bij beweging start automatisch een opname met **pre-roll**: de seconden vóór de beweging zitten erbij.
 - Opname loopt door zolang er beweging is en stopt na de ingestelde cliplengte na de laatste beweging (max 3 min).
 - Clips worden lokaal bewaard in **IndexedDB**; per clip is er Bekijk / Bewaar / Wis. "Bewaar" opent het deel-vel ("Bewaar video" → cameraroll); op desktop valt het terug op download.
+- Opgeslagen clips overleven het sluiten van de app en een herstart. De app vraagt **persistente opslag** aan (`navigator.storage.persist()`) zodat de browser de clips niet wegruimt (o.a. de iOS-regel die data na ~7 dagen niet-gebruik wist). De opslagregel toont "beveiligd" als dat gelukt is. Een lopende opname wordt bij het sluiten/achtergronden nog veiliggesteld.
 - "Scherm op zwart": zwarte overlay terwijl camera en detectie doorlopen (vereist dat schermvergrendeling uit staat).
 - Installeerbaar als PWA via manifest + service worker; werkt offline na eerste load.
 
@@ -17,7 +18,7 @@ Geen tweede toestel, geen account, geen abonnement. Alles draait lokaal in de br
 
 - `index.html` — volledige app (UI + logica, geen build nodig)
 - `manifest.json` — PWA-manifest
-- `service-worker.js` — offline cache (versietag `rat-cam-v2`)
+- `service-worker.js` — offline cache (versietag `rat-cam-v3`)
 - `icon-192.png`, `icon-512.png` — app-iconen
 - `vercel.json` — headers (service worker niet cachen, camera/microfoon toestaan)
 
