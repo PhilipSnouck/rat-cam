@@ -285,9 +285,16 @@
       const play=document.createElement("button"); play.textContent="Bekijk";
       play.onclick=()=>{ const url=URL.createObjectURL(c.blob); playerVid.src=url; player.showModal();
         player.onclose=()=>{playerVid.pause();playerVid.removeAttribute("src");URL.revokeObjectURL(url);}; };
-      const dl=document.createElement("button"); dl.textContent="Opslaan";
-      dl.onclick=()=>{ const url=URL.createObjectURL(c.blob); const a=document.createElement("a");
-        a.href=url; a.download="rat-cam-"+c.id+"."+ext(c.blob.type); a.click(); setTimeout(()=>URL.revokeObjectURL(url),4000); };
+      const dl=document.createElement("button"); dl.textContent="Bewaar";
+      dl.onclick=async()=>{
+        const fname="rat-cam-"+c.id+"."+ext(c.blob.type);
+        const type=c.blob.type||"video/webm";
+        // Deel-vel -> "Bewaar video" zet 'm in de cameraroll (iOS/Android). Fallback: download.
+        try{ const file=new File([c.blob],fname,{type});
+          if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:fname}); return; }
+        }catch(e){ if(e&&e.name==="AbortError") return; }   // gebruiker sloot het deel-vel
+        const url=URL.createObjectURL(c.blob); const a=document.createElement("a");
+        a.href=url; a.download=fname; a.click(); setTimeout(()=>URL.revokeObjectURL(url),4000); };
       const del=document.createElement("button"); del.className="del"; del.textContent="Wis";
       del.onclick=()=>{ if(confirm("Deze opname verwijderen?")) delClip(c.id); };
       acts.append(play,dl,del); el.append(img,meta,acts); clipsEl.append(el);
