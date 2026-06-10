@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0E1116" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<title>rat-cam — bewegingscamera</title>
+<style>
+  :root{
+    --bg:#0E1116; --surface:#171B22; --surface-2:#1F242D; --line:rgba(255,255,255,.08);
+    --text:#E8EAED; --muted:#8A929E; --watch:#2DD4BF; --rec:#FF5A52; --idle:#5A6472;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Roboto Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans)}
+  body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  .wrap{max-width:560px;margin:0 auto;padding:14px 14px 32px}
+  .status{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+  .dot{width:12px;height:12px;border-radius:50%;background:var(--idle);flex:none;color:var(--idle)}
+  .state-watch .dot{background:var(--watch);color:var(--watch);animation:pulse 2.4s ease-out infinite}
+  .state-rec .dot{background:var(--rec);color:var(--rec);animation:pulse 1s ease-out infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 currentColor}70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:0 0 0 0 transparent}}
+  .status .label{font-family:var(--mono);letter-spacing:.14em;font-size:13px;text-transform:uppercase;color:var(--muted)}
+  .status .big{font-family:var(--mono);font-size:22px;font-weight:600;letter-spacing:.02em;line-height:1.1}
+  .status .grow{flex:1;min-width:0}
+  .timer{font-family:var(--mono);font-size:22px;font-variant-numeric:tabular-nums;color:var(--rec);font-weight:600}
+  .timer.hidden{display:none}
+  .stage{position:relative;margin-top:12px;border-radius:18px;overflow:hidden;background:#000;border:1px solid var(--line);aspect-ratio:3/4}
+  video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+  .rec-badge{position:absolute;top:10px;left:10px;display:none;align-items:center;gap:7px;background:rgba(14,17,22,.7);padding:6px 11px;border-radius:999px;font-family:var(--mono);font-size:12px;letter-spacing:.1em}
+  .state-rec .rec-badge{display:flex}
+  .rec-badge i{width:8px;height:8px;border-radius:50%;background:var(--rec);animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:.2}}
+  .meter-wrap{margin-top:12px;padding:14px 16px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+  .meter-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+  .meter-head .t{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .meter-head .v{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--text)}
+  .meter{position:relative;height:14px;border-radius:7px;background:var(--surface-2);overflow:hidden}
+  .meter .fill{position:absolute;inset:0 100% 0 0;background:var(--watch);transition:right .08s linear,background .15s}
+  .meter.over .fill{background:var(--rec)}
+  .meter .mark{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text);opacity:.55;border-radius:2px;left:30%}
+  .btn{width:100%;border:none;border-radius:14px;padding:18px;font-family:var(--sans);font-size:17px;font-weight:650;color:var(--bg);background:var(--watch);margin-top:12px;cursor:pointer;transition:transform .06s}
+  .btn:active{transform:scale(.985)}
+  .btn.armed{background:var(--surface-2);color:var(--text);border:1px solid var(--line)}
+  .btn:disabled{opacity:.5}
+  .row{display:flex;gap:10px;margin-top:12px}
+  .card{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 15px}
+  .card label{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+  .card .val{font-family:var(--mono);font-size:14px;color:var(--text);float:right;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--watch);margin:2px 0 0}
+  .ghost{background:var(--surface);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:14px;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;flex:1}
+  .ghost:active{transform:scale(.985)}
+  .ghost.full{width:100%;flex:none}
+  .clips-head{display:flex;justify-content:space-between;align-items:baseline;margin:24px 2px 10px}
+  .clips-head h2{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
+  .clips-head .use{font-family:var(--mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .clip{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px}
+  .clip img{width:64px;height:80px;object-fit:cover;border-radius:9px;background:#000;flex:none}
+  .clip .meta{flex:1;min-width:0}
+  .clip .meta .when{font-size:14px;font-weight:600}
+  .clip .meta .sub{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+  .clip .acts{display:flex;flex-direction:column;gap:6px}
+  .clip .acts button{background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:8px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .clip .acts button.del{color:var(--rec)}
+  .empty{padding:26px 16px;text-align:center;color:var(--muted);font-size:14px;background:var(--surface);border:1px dashed var(--line);border-radius:14px}
+  .notice{margin-top:12px;padding:14px 16px;border-radius:14px;font-size:13.5px;line-height:1.5;background:rgba(255,90,82,.10);border:1px solid rgba(255,90,82,.3);color:#ffd9d6}
+  .notice.hidden{display:none}
+  .hint{margin:14px 2px 0;font-size:12.5px;color:var(--muted);line-height:1.55}
+  dialog{border:none;border-radius:18px;padding:0;background:var(--surface);color:var(--text);max-width:92vw;width:480px}
+  dialog::backdrop{background:rgba(0,0,0,.7)}
+  dialog video{aspect-ratio:3/4;border-radius:18px 18px 0 0}
+  .dlg-bar{display:flex;gap:10px;padding:12px}
+  #blackout{position:fixed;inset:0;background:#000;z-index:9999;display:none;align-items:flex-end;justify-content:center;padding-bottom:16vh}
+  #blackout.on{display:flex}
+  #blackout span{color:#161616;font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;transition:opacity 1.2s}
+  #blackout.dim span{opacity:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="status" id="status">
+    <span class="dot"></span>
+    <div class="grow">
+      <div class="label" id="stateLabel">Niet actief</div>
+      <div class="big" id="stateBig">Stand-by</div>
+    </div>
+    <div class="timer hidden" id="timer">0:00</div>
+  </div>
+
+  <div class="notice hidden" id="notice"></div>
+
+  <div class="stage">
+    <video id="video" playsinline muted autoplay></video>
+    <div class="rec-badge"><i></i> REC</div>
+  </div>
+
+  <div class="meter-wrap">
+    <div class="meter-head"><span class="t">Bewegingsniveau</span><span class="v" id="lvlText">—</span></div>
+    <div class="meter" id="meter"><div class="fill" id="meterFill"></div><div class="mark" id="meterMark"></div></div>
+  </div>
+
+  <button class="btn" id="armBtn" disabled>Camera starten</button>
+
+  <div class="row">
+    <div class="card"><label>Gevoeligheid <span class="val" id="sensVal">60</span></label><input type="range" id="sens" min="1" max="100" value="60" /></div>
+    <div class="card"><label>Cliplengte <span class="val" id="lenVal">30s</span></label><input type="range" id="len" min="10" max="120" step="5" value="30" /></div>
+  </div>
+  <div class="row">
+    <div class="card"><label>Pre-roll (seconden vooraf) <span class="val" id="preVal">5s</span></label><input type="range" id="pre" min="0" max="10" step="1" value="5" /></div>
+  </div>
+
+  <div class="row"><button class="ghost full" id="blackBtn">Scherm op zwart</button></div>
+  <div class="row">
+    <button class="ghost" id="switchBtn">Camera wisselen</button>
+    <button class="ghost" id="testBtn">Testopname</button>
+  </div>
+
+  <div class="clips-head"><h2>Opnames</h2><span class="use" id="usage"></span></div>
+  <div id="clips"></div>
+
+  <p class="hint">
+    Houd de app op de voorgrond met het scherm aan. Zet automatische schermvergrendeling uit en gebruik
+    "Scherm op zwart" om het toestel donker te laten ogen terwijl de opname doorloopt. Tik op het zwarte scherm om te wekken.
+    Sluit de telefoon aan op de lader voor langere sessies.
+  </p>
+</div>
+
+<dialog id="player">
+  <video id="playerVid" controls playsinline></video>
+  <div class="dlg-bar"><button class="ghost" id="closePlayer">Sluiten</button></div>
+</dialog>
+
+<div id="blackout"><span>Tik om te wekken</span></div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const video=$("video"), statusEl=$("status"), stateLabel=$("stateLabel"), stateBig=$("stateBig"),
+        timerEl=$("timer"), meter=$("meter"), meterFill=$("meterFill"), meterMark=$("meterMark"),
+        lvlText=$("lvlText"), armBtn=$("armBtn"), sens=$("sens"), sensVal=$("sensVal"),
+        lenR=$("len"), lenVal=$("lenVal"), preR=$("pre"), preVal=$("preVal"),
+        switchBtn=$("switchBtn"), testBtn=$("testBtn"), blackBtn=$("blackBtn"),
+        clipsEl=$("clips"), usageEl=$("usage"), notice=$("notice"),
+        player=$("player"), playerVid=$("playerVid"), closePlayer=$("closePlayer"), blackout=$("blackout");
+
+  let stream=null, armed=false, facing="environment";
+  let recorder=null, header=null, buffer=[], capturing=false, prerollChunks=[], capChunks=[];
+  let capStart=0, lastMotion=0, cooldownUntil=0, stopTimer=null, tickTimer=null, prevData=null, pendingThumb=null, wakeLock=null;
+  const MAXCLIP=180000;
+  const det=document.createElement("canvas"); det.width=96; det.height=72;
+  const dctx=det.getContext("2d",{willReadFrequently:true});
+  const METER_SCALE=25;
+
+  const show=m=>{notice.textContent=m;notice.classList.remove("hidden");};
+  const hideNotice=()=>notice.classList.add("hidden");
+
+  async function startCamera(){
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){show("Deze browser ondersteunt geen camera-toegang.");return false;}
+    if(!window.isSecureContext){show("Camera werkt alleen via https of localhost. Host de map (zie uitleg) en open via https.");return false;}
+    stopCamera();
+    try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}},audio:true}); }
+    catch(e){ show("Kon de camera niet starten: "+e.message); return false; }
+    video.srcObject=stream; await video.play().catch(()=>{}); hideNotice(); return true;
+  }
+  function stopCamera(){ if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;} }
+
+  async function lockScreen(){ try{ if("wakeLock" in navigator) wakeLock=await navigator.wakeLock.request("screen"); }catch(e){} }
+  function unlockScreen(){ try{ wakeLock&&wakeLock.release(); }catch(e){} wakeLock=null; }
+  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"&&armed) lockScreen(); });
+
+  function pickMime(){ const c=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm","video/mp4"];
+    for(const m of c) if(window.MediaRecorder&&MediaRecorder.isTypeSupported(m)) return m; return ""; }
+
+  // Continue recorder draait zolang de bewaking aan staat -> levert pre-roll
+  function startRecorder(){
+    if(!window.MediaRecorder){ show("Deze browser ondersteunt geen opnemen (MediaRecorder)."); return; }
+    const mime=pickMime();
+    try{ recorder=new MediaRecorder(stream, mime?{mimeType:mime}:undefined); }
+    catch(e){ show("Opnemen niet beschikbaar: "+e.message); return; }
+    header=null; buffer=[]; capturing=false; capChunks=[]; prerollChunks=[];
+    recorder.ondataavailable=e=>{
+      if(!e.data||!e.data.size) return;
+      if(!header){ header=e.data; return; }        // eerste blok = init-segment (kop)
+      const now=Date.now();
+      if(capturing) capChunks.push(e.data);
+      buffer.push({t:now,blob:e.data});
+      const keepFrom=now-((+preR.value)*1000+4000);
+      while(buffer.length && buffer[0].t<keepFrom) buffer.shift();
+    };
+    recorder.start(1000);
+  }
+  function stopRecorder(){ try{ if(recorder&&recorder.state!=="inactive") recorder.stop(); }catch(e){} recorder=null; header=null; buffer=[]; }
+
+  function snapThumb(){ try{ const c=document.createElement("canvas"); c.width=96;c.height=120;
+    c.getContext("2d").drawImage(video,0,0,c.width,c.height); return c.toDataURL("image/jpeg",.6);}catch(e){return null;} }
+
+  function beginCapture(){
+    if(capturing||!recorder) return;
+    capturing=true; capStart=Date.now(); lastMotion=capStart; pendingThumb=snapThumb();
+    const preMs=(+preR.value)*1000;
+    prerollChunks=buffer.filter(b=>b.t>=capStart-preMs).map(b=>b.blob);
+    capChunks=[];
+    setState("rec"); scheduleStop();
+    tickTimer=setInterval(()=>{ const s=Math.floor((Date.now()-capStart+preMs)/1000);
+      timerEl.textContent=Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); },250);
+  }
+  function scheduleStop(){
+    clearTimeout(stopTimer);
+    const clipMs=+lenR.value*1000;
+    let stopAt=Math.min(Math.max(capStart+clipMs,lastMotion+clipMs), capStart+MAXCLIP);
+    stopTimer=setTimeout(()=>{ if(Date.now()>=lastMotion+clipMs||Date.now()>=capStart+MAXCLIP) finishCapture(); else scheduleStop(); },
+      Math.max(250,stopAt-Date.now()));
+  }
+  function finishCapture(){
+    if(!capturing) return;
+    capturing=false; clearInterval(tickTimer); clearTimeout(stopTimer); cooldownUntil=Date.now()+2000;
+    const preMs=(+preR.value)*1000;
+    const type=(recorder&&recorder.mimeType)||"video/webm";
+    const parts=[]; if(header) parts.push(header); parts.push(...prerollChunks,...capChunks);
+    const blob=new Blob(parts,{type});
+    prerollChunks=[]; capChunks=[];
+    if(blob.size) saveClip(blob, Date.now()-capStart+preMs, pendingThumb);
+    setState(armed?"watch":"idle");
+  }
+
+  function loop(){
+    if(stream&&video.videoWidth){
+      dctx.drawImage(video,0,0,det.width,det.height);
+      const cur=dctx.getImageData(0,0,det.width,det.height).data;
+      let level=0;
+      if(prevData){ let changed=0; const n=det.width*det.height;
+        for(let i=0;i<cur.length;i+=4){ const a=cur[i]+cur[i+1]+cur[i+2], b=prevData[i]+prevData[i+1]+prevData[i+2];
+          if(Math.abs(a-b)>75) changed++; }
+        level=changed/n*100; }
+      prevData=cur;
+      const thr=triggerThreshold(), over=level>thr;
+      meterFill.style.right=(100-Math.min(level/METER_SCALE*100,100))+"%";
+      meterMark.style.left=Math.min(thr/METER_SCALE*100,100)+"%";
+      meter.classList.toggle("over",over&&armed);
+      lvlText.textContent=level.toFixed(1)+"%";
+      const now=Date.now();
+      if(armed&&over&&now>cooldownUntil){ if(!capturing) beginCapture(); else lastMotion=now; }
+    }
+    requestAnimationFrame(loop);
+  }
+  function triggerThreshold(){ return 0.4+(100-(+sens.value))*0.14; }
+
+  // ---- IndexedDB ----
+  let db=null;
+  const openDB=()=>new Promise((res,rej)=>{ const r=indexedDB.open("rat-cam",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("clips",{keyPath:"id"});
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+  async function saveClip(blob,dur,thumb){ if(!db) db=await openDB();
+    const rec={id:Date.now(),ts:Date.now(),dur,size:blob.size,blob,thumb};
+    await new Promise((res,rej)=>{ const tx=db.transaction("clips","readwrite"); tx.objectStore("clips").put(rec);
+      tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); renderClips(); updateUsage(); }
+  async function allClips(){ if(!db) db=await openDB();
+    return new Promise((res,rej)=>{ const out=[]; const tx=db.transaction("clips","readonly");
+      tx.objectStore("clips").openCursor(null,"prev").onsuccess=e=>{ const c=e.target.result; if(c){out.push(c.value);c.continue();}else res(out); };
+      tx.onerror=()=>rej(tx.error); }); }
+  async function delClip(id){ if(!db) db=await openDB();
+    await new Promise(res=>{ const tx=db.transaction("clips","readwrite"); tx.objectStore("clips").delete(id); tx.oncomplete=res; });
+    renderClips(); updateUsage(); }
+
+  const fmtSize=b=>b>1e6?(b/1e6).toFixed(1)+" MB":Math.round(b/1e3)+" KB";
+  const fmtWhen=ts=>{const d=new Date(ts);return d.toLocaleDateString("nl-NL",{day:"numeric",month:"short"})+" "+d.toLocaleTimeString("nl-NL",{hour:"2-digit",minute:"2-digit"});};
+  const ext=t=>t.includes("mp4")?"mp4":"webm";
+
+  async function renderClips(){
+    const list=await allClips();
+    if(!list.length){ clipsEl.innerHTML='<div class="empty">Nog geen opnames. Zodra er beweging is, verschijnt hier een clip.</div>'; return; }
+    clipsEl.innerHTML="";
+    for(const c of list){
+      const el=document.createElement("div"); el.className="clip";
+      const img=document.createElement("img"); if(c.thumb) img.src=c.thumb;
+      const meta=document.createElement("div"); meta.className="meta";
+      meta.innerHTML='<div class="when">'+fmtWhen(c.ts)+'</div><div class="sub">'+Math.round(c.dur/1000)+'s · '+fmtSize(c.size)+'</div>';
+      const acts=document.createElement("div"); acts.className="acts";
+      const play=document.createElement("button"); play.textContent="Bekijk";
+      play.onclick=()=>{ const url=URL.createObjectURL(c.blob); playerVid.src=url; player.showModal();
+        player.onclose=()=>{playerVid.pause();playerVid.removeAttribute("src");URL.revokeObjectURL(url);}; };
+      const dl=document.createElement("button"); dl.textContent="Opslaan";
+      dl.onclick=()=>{ const url=URL.createObjectURL(c.blob); const a=document.createElement("a");
+        a.href=url; a.download="rat-cam-"+c.id+"."+ext(c.blob.type); a.click(); setTimeout(()=>URL.revokeObjectURL(url),4000); };
+      const del=document.createElement("button"); del.className="del"; del.textContent="Wis";
+      del.onclick=()=>{ if(confirm("Deze opname verwijderen?")) delClip(c.id); };
+      acts.append(play,dl,del); el.append(img,meta,acts); clipsEl.append(el);
+    }
+  }
+  async function updateUsage(){ try{ if(navigator.storage&&navigator.storage.estimate){ const e=await navigator.storage.estimate(); usageEl.textContent=fmtSize(e.usage||0)+" gebruikt"; } }catch(e){} }
+
+  function setState(s){
+    statusEl.classList.remove("state-watch","state-rec"); timerEl.classList.add("hidden");
+    if(s==="watch"){ statusEl.classList.add("state-watch"); stateLabel.textContent="Actief"; stateBig.textContent="Aan het kijken"; }
+    else if(s==="rec"){ statusEl.classList.add("state-rec"); stateLabel.textContent="Beweging"; stateBig.textContent="Aan het opnemen"; timerEl.classList.remove("hidden"); }
+    else{ stateLabel.textContent="Niet actief"; stateBig.textContent="Stand-by"; }
+  }
+
+  armBtn.onclick=async()=>{
+    if(!stream){ armBtn.disabled=true; const ok=await startCamera(); armBtn.disabled=false; if(!ok) return; }
+    armed=!armed;
+    if(armed){ prevData=null; cooldownUntil=Date.now()+800; startRecorder(); setState("watch");
+      armBtn.textContent="Bewaking stoppen"; armBtn.classList.add("armed"); lockScreen(); }
+    else{ if(capturing) finishCapture(); stopRecorder(); setState("idle");
+      armBtn.textContent="Bewaking starten"; armBtn.classList.remove("armed"); unlockScreen(); }
+  };
+  switchBtn.onclick=async()=>{ facing=facing==="environment"?"user":"environment"; const was=armed&&!!recorder;
+    if(capturing) finishCapture(); stopRecorder(); const ok=await startCamera(); if(ok&&was){ prevData=null; startRecorder(); } };
+  testBtn.onclick=()=>{ if(!stream){ show("Start eerst de camera."); return; }
+    if(!recorder) startRecorder(); cooldownUntil=0; if(!capturing){ beginCapture(); lastMotion=Date.now()-1e9; } };
+  sens.oninput=()=>sensVal.textContent=sens.value;
+  lenR.oninput=()=>lenVal.textContent=lenR.value+"s";
+  preR.oninput=()=>preVal.textContent=preR.value+"s";
+  closePlayer.onclick=()=>player.close();
+
+  // zwart scherm (camera + detectie blijven doorlopen)
+  let dimTimer=null;
+  blackBtn.onclick=()=>{ blackout.classList.add("on"); blackout.classList.remove("dim");
+    clearTimeout(dimTimer); dimTimer=setTimeout(()=>blackout.classList.add("dim"),2200); };
+  blackout.addEventListener("click",()=>{ blackout.classList.remove("on","dim"); clearTimeout(dimTimer); });
+
+  (async()=>{
+    if(!window.isSecureContext) show("Tip: open deze app via https (of localhost). Anders blokkeert de browser de camera.");
+    try{ db=await openDB(); }catch(e){}
+    renderClips(); updateUsage(); loop();
+    armBtn.disabled=false; armBtn.textContent="Camera starten";
+  })();
+
+  if("serviceWorker" in navigator && window.isSecureContext){ navigator.serviceWorker.register("service-worker.js").catch(()=>{}); }
+})();
+</script>
+</body>
+</html>
