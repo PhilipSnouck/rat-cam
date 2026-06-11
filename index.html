@@ -71,10 +71,11 @@
   .notice{margin-top:12px;padding:14px 16px;border-radius:14px;font-size:13.5px;line-height:1.5;background:rgba(255,90,82,.10);border:1px solid rgba(255,90,82,.3);color:#ffd9d6}
   .notice.hidden{display:none}
   .hint{margin:14px 2px 0;font-size:12.5px;color:var(--muted);line-height:1.55}
-  dialog{border:none;border-radius:18px;padding:0;background:var(--surface);color:var(--text);max-width:92vw;width:480px}
+  dialog{border:none;border-radius:18px;padding:0;background:var(--surface);color:var(--text);max-width:92vw;width:480px;max-height:90vh;overflow:visible}
   dialog::backdrop{background:rgba(0,0,0,.7)}
-  dialog video{aspect-ratio:3/4;border-radius:18px 18px 0 0}
-  .dlg-bar{display:flex;gap:10px;padding:12px}
+  dialog video{display:block;width:100%;max-height:84vh;object-fit:contain;background:#000;border-radius:18px}
+  .dlg-close{position:absolute;top:-14px;right:-14px;width:44px;height:44px;border:none;border-radius:50%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);font-size:22px;line-height:1;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+  .dlg-close:active{transform:scale(.94)}
   #blackout{position:fixed;inset:0;background:#000;z-index:9999;display:none;align-items:flex-end;justify-content:center;padding-bottom:16vh}
   #blackout.on{display:flex}
   #blackout span{color:#161616;font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;transition:opacity 1.2s}
@@ -132,7 +133,7 @@
 
 <dialog id="player">
   <video id="playerVid" controls playsinline></video>
-  <div class="dlg-bar"><button class="ghost" id="closePlayer">Sluiten</button></div>
+  <button class="dlg-close" id="closePlayer" aria-label="Sluiten">✕</button>
 </dialog>
 
 <div id="blackout"><span>Tik om te wekken</span></div>
@@ -335,6 +336,7 @@
   lenR.oninput=()=>lenVal.textContent=lenR.value+"s";
   preR.oninput=()=>preVal.textContent=preR.value+"s";
   closePlayer.onclick=()=>player.close();
+  player.addEventListener("click",e=>{ if(e.target===player) player.close(); });   // tik naast de video sluit
 
   // zwart scherm (camera + detectie blijven doorlopen)
   let dimTimer=null;

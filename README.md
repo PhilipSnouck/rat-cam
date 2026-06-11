@@ -18,7 +18,7 @@ Geen tweede toestel, geen account, geen abonnement. Alles draait lokaal in de br
 
 - `index.html` — volledige app (UI + logica, geen build nodig)
 - `manifest.json` — PWA-manifest
-- `service-worker.js` — offline cache (versietag `rat-cam-v3`)
+- `service-worker.js` — offline cache (versietag `rat-cam-v4`)
 - `icon-192.png`, `icon-512.png` — app-iconen
 - `vercel.json` — headers (service worker niet cachen, camera/microfoon toestaan)
 
