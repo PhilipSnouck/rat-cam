@@ -10,7 +10,7 @@ Een volledig client-side PWA die één telefoon in een bewegingsgestuurde beveil
 verandert. Geen backend, geen database, geen API-keys, geen build step — alle logica zit in
 één `index.html` (vanilla JS, ~220 regels script). Clips worden lokaal opgeslagen in IndexedDB.
 
-- **Local:** `C:\Users\p.snouckaert\Own AI projects\rat-cam`
+- **Local:** `C:\Users\p.snouckaert\Personal repos\rat-cam`
 - **Deploy:** statische site op Vercel (framework preset **Other**, geen build). `vercel --prod` of via GitHub-import.
 - **Taal:** UI en README zijn Nederlands.
 
